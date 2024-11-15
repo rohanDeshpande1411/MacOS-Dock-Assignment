@@ -1,0 +1,145 @@
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Dock(
+            items: const [
+              Icons.person,
+              Icons.message,
+              Icons.call,
+              Icons.camera,
+              Icons.photo,
+            ],
+            builder: (e) {
+              return Container(
+                constraints: const BoxConstraints(minWidth: 48),
+                height: 48,
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.primaries[e.hashCode % Colors.primaries.length],
+                ),
+                child: Center(child: Icon(e, color: Colors.white)),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dock of the reorderable [items].
+class Dock<T extends Object> extends StatefulWidget {
+  const Dock({
+    super.key,
+    this.items = const [],
+    required this.builder,
+  });
+
+  final List<T> items;
+  final Widget Function(T) builder;
+
+  @override
+  State<Dock<T>> createState() => _DockState<T>();
+}
+
+class _DockState<T extends Object> extends State<Dock<T>> {
+  late List<T> _items;
+  int? _draggedIndex;  // Track the index of the dragged item.
+
+  @override
+  void initState() {
+    super.initState();
+    _items = widget.items.toList();
+  }
+
+  // Function to handle reordering
+  void onDragReorder(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final item = _items.removeAt(oldIndex);
+      _items.insert(newIndex, item);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.black12,
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(_items.length, (index) {
+          T item = _items[index];
+          bool isDragged = _draggedIndex == index;
+
+          return Draggable<T>(
+            data: item,
+            onDragStarted: () {
+              setState(() {
+                _draggedIndex = index;
+              });
+            },
+            onDraggableCanceled: (_, __) {
+              setState(() {
+                _draggedIndex = null;
+              });
+            },
+            onDragEnd: (details) {
+              setState(() {
+                _draggedIndex = null;
+              });
+            },
+            child: DragTarget<T>(
+              onAcceptWithDetails: (details) {
+                int fromIndex = _items.indexOf(details.data);
+                if (fromIndex != index) {
+                  onDragReorder(fromIndex, index);
+                }
+              },
+              builder: (context, candidateItems, rejectedItems) {
+                return AnimatedPadding(
+                  padding: isDragged
+                      ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
+                      : EdgeInsets.zero,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  child: AnimatedScale(
+                    scale: isDragged ? 1.2 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: widget.builder(item),
+                    ),
+                  ),
+                );
+              },
+            ),
+            feedback: Material(
+              color: Colors.transparent,
+              child: widget.builder(item),
+            ),
+            childWhenDragging: const SizedBox.shrink(),
+          );
+        }),
+      ),
+    );
+  }
+}
